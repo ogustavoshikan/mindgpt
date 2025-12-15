@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
-import { Progress } from "@/components/ui/progress";
 
 export function TokenUsage({ userId, refreshTrigger }: { userId: string, refreshTrigger: number }) {
     const supabase = createClient();
