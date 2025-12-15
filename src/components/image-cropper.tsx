@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react'
 import Cropper from 'react-easy-crop'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Slider } from "@/components/ui/slider" // Certifique-se de ter o Slider, senão usamos input range
 import { getCroppedImg } from "@/lib/crop-utils"
 
 interface ImageCropperProps {
