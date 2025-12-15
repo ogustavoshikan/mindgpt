@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { createClient } from "@/lib/supabase";
 import { toast } from "sonner";
+import { ImageCropper } from "@/components/image-cropper"; // <--- Importamos o Cropper
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -44,27 +45,45 @@ export function AgentSetup({
   
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Estados para o Cropper
+  const [selectedFileForCrop, setSelectedFileForCrop] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Lógica inteligente de exibição: Se for URL, mostra imagem. Se for nome, mostra ícone.
   const isUrl = agentIcon.startsWith("http");
   const CurrentIcon = !isUrl ? (ICON_MAP[agentIcon] || Bot) : null;
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 1. Usuário seleciona o arquivo -> Lemos como URL local e abrimos o Cropper
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
+      const reader = new FileReader();
+      reader.addEventListener('load', () => {
+          setSelectedFileForCrop(reader.result?.toString() || null);
+      });
+      reader.readAsDataURL(file);
+      // Reseta o input para permitir selecionar a mesma foto se cancelar
+      e.target.value = ''; 
+  };
+
+  // 2. Usuário confirmou o corte -> Recebemos o Blob e fazemos o Upload
+  const handleCropComplete = async (croppedBlob: Blob) => {
+      setSelectedFileForCrop(null); // Fecha o modal
       setIsUploading(true);
+
       try {
-          const fileExt = file.name.split('.').pop();
+          const fileExt = "jpg"; // Convertemos sempre para jpg no cropper
           const fileName = `${Math.random()}.${fileExt}`;
-          const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file);
+          
+          // Upload do Blob direto
+          const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, croppedBlob);
           
           if (uploadError) throw uploadError;
 
           const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
-          setAgentIcon(publicUrl); // Salva a URL no lugar do nome do ícone
-          toast.success("Imagem enviada!");
+          setAgentIcon(publicUrl); // Salva a URL
+          toast.success("Imagem atualizada!");
       } catch (error: any) {
           toast.error("Erro no upload", { description: error.message });
       } finally {
@@ -73,6 +92,16 @@ export function AgentSetup({
   };
 
   return (
+    <>
+    {/* Componente de Corte (Só aparece se tiver arquivo selecionado) */}
+    {selectedFileForCrop && (
+        <ImageCropper 
+            imageSrc={selectedFileForCrop} 
+            onClose={() => setSelectedFileForCrop(null)} 
+            onCropComplete={handleCropComplete} 
+        />
+    )}
+
     <aside className={`bg-[#171717] border-l border-white/5 flex flex-col transition-all duration-300 ease-in-out h-full flex-shrink-0 z-20 overflow-hidden ${isOpen ? "w-[380px] translate-x-0 opacity-100" : "w-0 translate-x-full opacity-0 border-l-0"}`}>
        <div className="p-4 border-b border-white/5 bg-[#171717] flex-shrink-0 min-w-[380px]">
           <div className="flex items-center justify-between mb-4">
@@ -115,17 +144,18 @@ export function AgentSetup({
                                 })}
                             </div>
                             <div className="border-t border-white/10 pt-2 mt-2">
+                                {/* Alterado para chamar handleFileSelect */}
                                 <Button variant="ghost" onClick={() => fileInputRef.current?.click()} className="w-full text-xs h-8 text-zinc-400 hover:text-white hover:bg-white/5 flex items-center justify-center gap-2">
                                     <Upload size={14} /> Upload Imagem
                                 </Button>
-                                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+                                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileSelect} />
                             </div>
                         </DropdownMenuContent>
                       </DropdownMenu>
                       <span className="text-xs text-zinc-500 font-medium">Clique para alterar</span>
                   </div>
 
-                  {/* Campos de Texto (Mantidos iguais) */}
+                  {/* Campos de Texto */}
                   <div className="space-y-4">
                       <div className="space-y-1.5"><Label className="text-xs text-zinc-400 font-medium">Nome</Label><Input className="bg-[#212121] border-white/10 text-zinc-200 focus-visible:ring-1 focus-visible:ring-white/20 h-10" value={agentName} onChange={(e) => setAgentName(e.target.value)} placeholder="Ex: Jarvis" /></div>
                       <div className="space-y-1.5"><Label className="text-xs text-zinc-400 font-medium">Descrição</Label><Input className="bg-[#212121] border-white/10 text-zinc-200 focus-visible:ring-1 focus-visible:ring-white/20 h-10" value={agentDesc} onChange={(e) => setAgentDesc(e.target.value)} placeholder="Ex: Assistente Pessoal" /></div>
@@ -158,5 +188,6 @@ export function AgentSetup({
            <div className="flex justify-between text-[10px] text-zinc-500 px-1 pt-1"><span className="cursor-pointer hover:text-zinc-300 flex items-center gap-1 transition-colors"><Copy size={12} /> Duplicar</span><span className="cursor-pointer hover:text-zinc-300 flex items-center gap-1 transition-colors"><Share2 size={12} /> Compartilhar</span><span className="cursor-pointer hover:text-red-400 flex items-center gap-1 transition-colors"><Trash2 size={12} /> Deletar</span></div>
        </div>
     </aside>
+    </>
   );
 }
