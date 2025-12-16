@@ -1,59 +1,64 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
+import { Zap } from "lucide-react";
 
-export function TokenUsage({ userId, refreshTrigger }: { userId: string, refreshTrigger: number }) {
-    const supabase = createClient();
-    const [usage, setUsage] = useState({ high_intelligence: 0, high_efficiency: 0 });
+interface TokenUsageProps {
+  userId: string;
+  refreshTrigger: number;
+}
 
-    useEffect(() => {
-        const fetchUsage = async () => {
-            const today = new Date().toISOString().split('T')[0];
-            const { data } = await supabase
-                .from('token_daily_usage')
-                .select('*')
-                .eq('user_id', userId)
-                .eq('date', today);
+export function TokenUsage({ userId, refreshTrigger }: TokenUsageProps) {
+  const [tokens, setTokens] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+  const supabase = createClient();
 
-            if (data) {
-                const newUsage = { high_intelligence: 0, high_efficiency: 0 };
-                data.forEach(row => {
-                    if (row.model_tier === 'high_intelligence') newUsage.high_intelligence = row.tokens_used;
-                    if (row.model_tier === 'high_efficiency') newUsage.high_efficiency = row.tokens_used;
-                });
-                setUsage(newUsage);
-            }
-        };
-        fetchUsage();
-    }, [userId, refreshTrigger]); // Recarrega sempre que o 'refreshTrigger' mudar (quando envia msg)
+  useEffect(() => {
+    const fetchTokens = async () => {
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Busca uso apenas se tiver userId
+        if (!userId) return;
 
-    // Limites
-    const LIMIT_INTEL = 250000;
-    const LIMIT_EFFIC = 2500000;
+        const { data, error } = await supabase
+          .from('token_daily_usage')
+          .select('tokens_used')
+          .eq('user_id', userId)
+          .eq('date', today);
 
-    const pctIntel = Math.min((usage.high_intelligence / LIMIT_INTEL) * 100, 100);
-    const pctEffic = Math.min((usage.high_efficiency / LIMIT_EFFIC) * 100, 100);
+        if (error) {
+            console.error("Erro Supabase:", error);
+            return;
+        }
 
-    return (
-        <div className="px-3 py-2 space-y-3 bg-black/20 mx-2 rounded-lg border border-white/5">
-            <div className="space-y-1">
-                <div className="flex justify-between text-[10px] text-zinc-400 uppercase tracking-wider font-semibold">
-                    <span>Alta Inteligência</span>
-                    <span>{usage.high_intelligence.toLocaleString()} / 250k</span>
-                </div>
-                <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-500" style={{ width: `${pctIntel}%` }} />
-                </div>
-            </div>
+        // SOMA SEGURA: Se vier null, usa 0.
+        const total = data?.reduce((acc, curr) => acc + (curr.tokens_used || 0), 0) || 0;
+        
+        setTokens(total);
+      } catch (err) {
+        console.error("Erro fatal token usage:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-            <div className="space-y-1">
-                <div className="flex justify-between text-[10px] text-zinc-400 uppercase tracking-wider font-semibold">
-                    <span>Alta Eficiência</span>
-                    <span>{usage.high_efficiency.toLocaleString()} / 2.5M</span>
-                </div>
-                <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-500" style={{ width: `${pctEffic}%` }} />
-                </div>
-            </div>
+    fetchTokens();
+  }, [userId, refreshTrigger]);
+
+  if (loading) return <div className="h-6 w-20 bg-white/5 rounded-full animate-pulse" />;
+
+  return (
+    <div className="flex items-center justify-center w-full">
+        <div className="flex items-center gap-2 text-xs text-zinc-500 bg-white/5 px-3 py-1.5 rounded-full border border-white/5 hover:bg-white/10 transition-colors cursor-help" title="Tokens usados hoje">
+            <Zap size={12} className="text-yellow-500 fill-yellow-500" />
+            <span className="font-mono">
+                {/* AQUI ESTAVA O ERRO: Agora garantimos que (tokens || 0) nunca é null */}
+                {(tokens || 0).toLocaleString('pt-BR')} 
+            </span>
+            <span>tokens</span>
         </div>
-    );
+    </div>
+  );
 }
