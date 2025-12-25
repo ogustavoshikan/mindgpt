@@ -226,14 +226,63 @@ export default function ChatInterface() {
                     <Search size={14} className="absolute left-4 top-3 text-zinc-500" />
                     <input className="w-full bg-[#212121] text-zinc-200 text-sm rounded-lg pl-8 pr-2 h-9 border border-transparent focus:border-white/10 focus:outline-none placeholder:text-zinc-500" placeholder="Buscar mensagens" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                 </div>
-                <ScrollArea className="flex-1 px-2">
-                    {filteredChats.map((chat) => (
-                        <div key={chat.id} onClick={() => loadChat(chat.id)} className={`group flex items-center justify-between w-full p-2 rounded-lg cursor-pointer text-sm transition-colors ${activeChatId === chat.id ? "bg-[#212121] text-white" : "text-zinc-400 hover:bg-[#212121] hover:text-zinc-200"}`}>
-                            <span className="truncate flex-1">{chat.title}</span>
-                            <Trash2 size={14} className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 transition-opacity" onClick={(e) => confirmDeleteChat(e, chat.id)} />
-                        </div>
-                    ))}
-                </ScrollArea>
+                <div className="flex-1 overflow-y-auto px-2 custom-scrollbar min-h-0">
+                    {(() => {
+                        const groups: { [key: string]: any[] } = {
+                            "Hoje": [],
+                            "Ontem": [],
+                            "Últimos 7 dias": [],
+                            "Últimos 30 dias": [],
+                            "Antigos": []
+                        };
+
+                        filteredChats.forEach((chat) => {
+                            const date = new Date(chat.updated_at || chat.created_at);
+                            const now = new Date();
+                            const diffTime = now.getTime() - date.getTime();
+                            const diffDays = diffTime / (1000 * 3600 * 24);
+
+                            if (now.getDate() === date.getDate() && now.getMonth() === date.getMonth() && now.getFullYear() === date.getFullYear()) {
+                                groups["Hoje"].push(chat);
+                            } else if (diffDays < 2 && now.getDate() !== date.getDate()) {
+                                // Simple check for yesterday (imperfect but usually sufficient for "recent" logic without lib)
+                                // Better check: isSameDay(date, yesterday)
+                                const yesterday = new Date(now);
+                                yesterday.setDate(now.getDate() - 1);
+                                if (date.getDate() === yesterday.getDate() && date.getMonth() === yesterday.getMonth() && date.getFullYear() === yesterday.getFullYear()) {
+                                    groups["Ontem"].push(chat);
+                                } else {
+                                    if (diffDays <= 7) groups["Últimos 7 dias"].push(chat);
+                                    else if (diffDays <= 30) groups["Últimos 30 dias"].push(chat);
+                                    else groups["Antigos"].push(chat);
+                                }
+                            } else if (diffDays <= 7) {
+                                groups["Últimos 7 dias"].push(chat);
+                            } else if (diffDays <= 30) {
+                                groups["Últimos 30 dias"].push(chat);
+                            } else {
+                                groups["Antigos"].push(chat);
+                            }
+                        });
+
+                        return Object.entries(groups).map(([label, chats]) => {
+                            if (chats.length === 0) return null;
+                            return (
+                                <div key={label} className="mb-4">
+                                    <h3 className="text-xs font-semibold text-zinc-500 px-2 py-2 uppercase tracking-wider">{label}</h3>
+                                    <div className="flex flex-col gap-0.5">
+                                        {chats.map(chat => (
+                                            <div key={chat.id} onClick={() => loadChat(chat.id)} className={`group flex items-center justify-between w-full p-2 rounded-lg cursor-pointer text-sm transition-colors ${activeChatId === chat.id ? "bg-[#212121] text-white" : "text-zinc-400 hover:bg-[#212121] hover:text-zinc-200"}`}>
+                                                <span className="truncate flex-1">{chat.title}</span>
+                                                <Trash2 size={14} className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 transition-opacity" onClick={(e) => confirmDeleteChat(e, chat.id)} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        });
+                    })()}
+                </div>
                 <div className="mt-auto p-2">
                     {user && <TokenUsage userId={user.id} refreshTrigger={refreshTokens} />}
                 </div>
