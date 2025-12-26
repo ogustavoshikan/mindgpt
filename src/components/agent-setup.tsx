@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import * as React from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +41,36 @@ export function AgentSetup({
 
     // State for Cropper Moved to AgentIconPicker
 
+    const [googleApiKey, setGoogleApiKey] = React.useState("");
+    const [dynamicModels, setDynamicModels] = React.useState<any[]>([]);
+    const [isLoadingModels, setIsLoadingModels] = React.useState(false);
+
+    const fetchGoogleModels = async () => {
+        if (!googleApiKey) return;
+        setIsLoadingModels(true);
+        try {
+            const res = await fetch('/api/providers/google/models', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ apiKey: googleApiKey })
+            });
+            const data = await res.json();
+            if (data.models) {
+                setDynamicModels(data.models.map((m: any) => ({
+                    id: m.id,
+                    displayName: m.name // In route: name = displayName from Google
+                })));
+                // Update: fixing the mapping based on my route implementation
+                // Route returns: { id: "gemini-pro", name: "Gemini 1.0 Pro", description: ... }
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsLoadingModels(false);
+        }
+    };
+
+
     return (
         <>
             <aside className={`bg-[#171717] border-l border-white/5 flex flex-col transition-all duration-300 ease-in-out h-full flex-shrink-0 z-20 overflow-hidden ${isOpen ? "w-[380px] translate-x-0 opacity-100" : "w-0 translate-x-full opacity-0 border-l-0"}`}>
@@ -73,13 +104,55 @@ export function AgentSetup({
 
                                 <div className="space-y-1.5">
                                     <Label className="text-xs text-zinc-400 font-medium">Modelo</Label>
+                                    <div className="flex gap-2 mb-2">
+                                        <Input
+                                            type="password"
+                                            placeholder="Google API Key (Opcional)"
+                                            className="bg-[#212121] border-white/10 text-xs h-8"
+                                            value={googleApiKey}
+                                            onChange={(e) => setGoogleApiKey(e.target.value)}
+                                        />
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-8 border-white/10 bg-[#212121] hover:bg-zinc-800"
+                                            onClick={fetchGoogleModels}
+                                            disabled={!googleApiKey || isLoadingModels}
+                                        >
+                                            {isLoadingModels ? <span className="animate-spin">⏳</span> : "Carregar"}
+                                        </Button>
+                                    </div>
                                     <Select value={model} onValueChange={setModel}>
                                         <SelectTrigger className="w-full bg-[#212121] border-white/10 text-zinc-200 h-10"><SelectValue /></SelectTrigger>
                                         <SelectContent className="bg-[#212121] border-zinc-700 text-white max-h-[300px]">
-                                            <div className="px-2 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Alta Inteligência (250k/dia)</div>
+                                            {dynamicModels.length > 0 ? (
+                                                <>
+                                                    <div className="px-2 py-1.5 text-xs font-semibold text-[#FF5500] uppercase tracking-wider">Modelos Carregados</div>
+                                                    {dynamicModels.map((m: any) => (
+                                                        <SelectItem key={m.id} value={m.id}>{m.displayName || m.id}</SelectItem>
+                                                    ))}
+                                                    <div className="my-1 border-t border-white/5" />
+                                                </>
+                                            ) : null}
+
+                                            <div className="px-2 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Padrão do Sistema</div>
                                             <SelectItem value="gpt-5.1">GPT-5.1</SelectItem><SelectItem value="gpt-5">GPT-5</SelectItem><SelectItem value="gpt-5-chat-latest">GPT-5 Chat Latest</SelectItem><SelectItem value="gpt-4.1">GPT-4.1</SelectItem><SelectItem value="gpt-4o">GPT-4o</SelectItem><SelectItem value="o1">o1</SelectItem><SelectItem value="o3">o3</SelectItem>
+
                                             <div className="px-2 py-1.5 mt-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider border-t border-white/5 pt-2">Alta Eficiência (2.5M/dia)</div>
                                             <SelectItem value="gpt-5-mini">GPT-5 Mini</SelectItem><SelectItem value="gpt-5-nano">GPT-5 Nano</SelectItem><SelectItem value="gpt-4.1-mini">GPT-4.1 Mini</SelectItem><SelectItem value="gpt-4.1-nano">GPT-4.1 Nano</SelectItem><SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem><SelectItem value="o1-mini">o1 Mini</SelectItem><SelectItem value="o3-mini">o3 Mini</SelectItem><SelectItem value="o4-mini">o4 Mini</SelectItem>
+
+                                            <div className="px-2 py-1.5 mt-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider border-t border-white/5 pt-2">Google Gemini 2.0 (Experimental)</div>
+                                            <SelectItem value="gemini-2.0-flash-exp">Gemini 2.0 Flash Exp</SelectItem>
+
+                                            <div className="px-2 py-1.5 mt-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider border-t border-white/5 pt-2">Google Gemini 1.5</div>
+                                            <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro (Latest)</SelectItem>
+                                            <SelectItem value="gemini-1.5-pro-002">Gemini 1.5 Pro-002</SelectItem>
+                                            <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash (Latest)</SelectItem>
+                                            <SelectItem value="gemini-1.5-flash-002">Gemini 1.5 Flash-002</SelectItem>
+                                            <SelectItem value="gemini-1.5-flash-8b">Gemini 1.5 Flash-8B</SelectItem>
+
+                                            <div className="px-2 py-1.5 mt-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider border-t border-white/5 pt-2">Google Gemini 1.0</div>
+                                            <SelectItem value="gemini-1.0-pro">Gemini 1.0 Pro</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useChat } from "ai/react";
+import { useChat } from "@ai-sdk/react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Button } from "@/components/ui/button";
@@ -136,7 +136,7 @@ export default function ChatInterface() {
     const handleSelectAgent = (id: string) => { const agent = agentsList.find(a => a.id === id); if (agent) { loadAgentIntoState(agent); setMessages([]); setActiveChatId(null); } };
 
     const handleCustomSubmit = async () => {
-        if (!input.trim()) return;
+        if (!(input || "").trim()) return;
         if (!user) { setIsLoginOpen(true); return; }
         const userText = input;
         setInput('');
@@ -353,6 +353,8 @@ export default function ChatInterface() {
 
                                 <DropdownMenuSeparator className="bg-white/10 my-2" />
 
+
+
                                 <DropdownMenuLabel className="text-xs text-zinc-400 font-normal uppercase tracking-wider px-3 py-2">
                                     Meus Agentes
                                 </DropdownMenuLabel>
@@ -443,8 +445,8 @@ export default function ChatInterface() {
                     <div className="max-w-4xl mx-auto px-4 relative">
                         <div className="relative flex items-end w-full p-3 bg-[#2f2f2f] rounded-[26px] has-[:focus]:bg-[#2f2f2f] has-[:focus]:ring-0 transition-all">
                             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-700/50 mb-0.5 mr-2"><Paperclip size={20} /></Button>
-                            <textarea ref={textareaRef} className="flex-1 max-h-[200px] min-h-[44px] bg-transparent border-0 focus:ring-0 focus:outline-none focus:border-0 shadow-none text-zinc-100 placeholder:text-zinc-400 resize-none py-2.5 px-0 leading-relaxed scrollbar-hide text-base" placeholder={`Conversar com ${agentName}...`} rows={1} value={input} onChange={handleInputWithResize} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleCustomSubmit(); } }} />
-                            <Button disabled={!input.trim() || isLoading} onClick={() => handleCustomSubmit()} className={`h-8 w-8 rounded-full transition-all mb-0.5 ml-2 ${input.trim() ? 'bg-white text-black hover:bg-zinc-200' : 'bg-[#676767] text-zinc-900 cursor-not-allowed opacity-50'}`}><Send size={16} /></Button>
+                            <textarea ref={textareaRef} className="flex-1 max-h-[200px] min-h-[44px] bg-transparent border-0 focus:ring-0 focus:outline-none focus:border-0 shadow-none text-zinc-100 placeholder:text-zinc-400 resize-none py-2.5 px-0 leading-relaxed scrollbar-hide text-base" placeholder={`Conversar com ${agentName}...`} rows={1} value={input || ""} onChange={handleInputWithResize} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleCustomSubmit(); } }} />
+                            <Button disabled={!(input || "").trim() || isLoading} onClick={() => handleCustomSubmit()} className={`h-8 w-8 rounded-full transition-all mb-0.5 ml-2 ${(input || "").trim() ? 'bg-white text-black hover:bg-zinc-200' : 'bg-[#676767] text-zinc-900 cursor-not-allowed opacity-50'}`}><Send size={16} /></Button>
                         </div>
                     </div>
                 </div>

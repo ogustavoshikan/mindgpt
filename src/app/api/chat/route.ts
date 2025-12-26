@@ -1,4 +1,5 @@
 import { openai } from '@ai-sdk/openai';
+import { google } from '@ai-sdk/google';
 import { streamText, tool } from 'ai';
 import { tavily } from '@tavily/core';
 import { z } from 'zod';
@@ -17,8 +18,8 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 const HIGH_EFFICIENCY_MODELS = [
-    'gpt-5-mini', 'gpt-5-nano', 'gpt-4.1-mini', 'gpt-4.1-nano', 
-    'gpt-4o-mini', 'o1-mini', 'o3-mini', 'o4-mini'
+  'gpt-5-mini', 'gpt-5-nano', 'gpt-4.1-mini', 'gpt-4.1-nano',
+  'gpt-4o-mini', 'o1-mini', 'o3-mini', 'o4-mini'
 ];
 
 export async function POST(req: Request) {
@@ -40,45 +41,45 @@ export async function POST(req: Request) {
     };
 
     const result = await streamText({
-      model: openai(model || 'gpt-4o'),
+      model: model.startsWith('gemini') ? google(model) : openai(model || 'gpt-4o'),
       system: systemPrompt || "You are a helpful assistant.",
       messages: messages,
       tools: useWeb ? tools : undefined,
       maxSteps: 5,
       onFinish: async ({ usage }) => {
-          if (userId && usage) {
-              const totalTokens = usage.totalTokens;
-              const tier = HIGH_EFFICIENCY_MODELS.includes(model) ? 'high_efficiency' : 'high_intelligence';
-              
-              console.log(`📊 [TOKENS] ID: ${userId} | +${totalTokens} (${tier})`);
+        if (userId && usage) {
+          const totalTokens = usage.totalTokens;
+          const tier = HIGH_EFFICIENCY_MODELS.includes(model) ? 'high_efficiency' : 'high_intelligence';
 
-              const today = new Date().toISOString().split('T')[0];
+          console.log(`📊 [TOKENS] ID: ${userId} | +${totalTokens} (${tier})`);
 
-              // Usamos o supabaseAdmin para ignorar regras de RLS e forçar a escrita
-              const { data: existing } = await supabaseAdmin
-                  .from('token_daily_usage')
-                  .select('id, tokens_used')
-                  .eq('user_id', userId)
-                  .eq('date', today)
-                  .eq('model_tier', tier)
-                  .single();
+          const today = new Date().toISOString().split('T')[0];
 
-              if (existing) {
-                  await supabaseAdmin
-                      .from('token_daily_usage')
-                      .update({ tokens_used: existing.tokens_used + totalTokens })
-                      .eq('id', existing.id);
-              } else {
-                  await supabaseAdmin
-                      .from('token_daily_usage')
-                      .insert({ 
-                          user_id: userId, 
-                          date: today, 
-                          model_tier: tier, 
-                          tokens_used: totalTokens 
-                      });
-              }
+          // Usamos o supabaseAdmin para ignorar regras de RLS e forçar a escrita
+          const { data: existing } = await supabaseAdmin
+            .from('token_daily_usage')
+            .select('id, tokens_used')
+            .eq('user_id', userId)
+            .eq('date', today)
+            .eq('model_tier', tier)
+            .single();
+
+          if (existing) {
+            await supabaseAdmin
+              .from('token_daily_usage')
+              .update({ tokens_used: existing.tokens_used + totalTokens })
+              .eq('id', existing.id);
+          } else {
+            await supabaseAdmin
+              .from('token_daily_usage')
+              .insert({
+                user_id: userId,
+                date: today,
+                model_tier: tier,
+                tokens_used: totalTokens
+              });
           }
+        }
       }
     });
 
